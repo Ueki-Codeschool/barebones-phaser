@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  base: './',
+  // Base path will be overridden by --base flag when provided
+  base: '/',
   server: {
     open: true,
     port: 3000
