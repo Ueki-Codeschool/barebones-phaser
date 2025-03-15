@@ -7,6 +7,20 @@ const logoName = "logo";
 // A Scene is like a level or screen in our game
 // Each scene can have its own objects, characters, and rules
 class MainScene extends Phaser.Scene {
+  // Define class properties with their types
+  private logo!: Phaser.Physics.Arcade.Image;
+  private cursors!: {
+    up: Phaser.Input.Keyboard.Key;
+    down: Phaser.Input.Keyboard.Key;
+    left: Phaser.Input.Keyboard.Key;
+    right: Phaser.Input.Keyboard.Key;
+    jump: Phaser.Input.Keyboard.Key;
+  };
+  private isJumping: boolean = false;
+  private canJump: boolean = true; // Initialize canJump to true
+  private hasDoubleJump: boolean = true; // Track if double jump is available
+  private jumpReleased: boolean = true; // Track if jump key has been released
+
   constructor() {
     // "MainScene" is the name we give to this scene so we can find it later
     super("MainScene");
@@ -32,13 +46,13 @@ class MainScene extends Phaser.Scene {
     // First two parameters: x and y coordinates (400, 300 is the center of our 800x600 game)
     // Third parameter: the name of the image we want to show (the same name we used in preload)
     // We save the image to a variable so we can modify it
-    const logo = this.physics.add.image(100, 300, logoName);
+    this.logo = this.physics.add.image(100, 300, logoName);
 
     // Change the size of the image
     // setScale(x, y) changes the width and height of the image
     // Values less than 1 make it smaller, greater than 1 make it larger
     // Using the same value for both keeps the proportions the same
-    logo.setScale(0.1); // Make the logo half its original size
+    this.logo.setScale(0.1); // Make the logo half its original size
 
     // You can also set width and height separately
     // logo.setScale(0.5, 0.8); // Half width, 80% height
@@ -84,7 +98,7 @@ class MainScene extends Phaser.Scene {
     ground.add(groundSprite);
 
     // Draw the obstacle as a brown rectangle
-    graphics.fillStyle(0x8B4513, 1); // Brown color
+    graphics.fillStyle(0x8b4513, 1); // Brown color
     graphics.fillRect(
       obstacleX - obstacleWidth / 2,
       obstacleY - obstacleHeight / 2,
@@ -99,28 +113,103 @@ class MainScene extends Phaser.Scene {
       obstacleY,
       obstacleWidth,
       obstacleHeight,
-      0x8B4513
+      0x8b4513
     );
     obstacle.add(obstacleSprite);
 
     // Make the logo and obstacle collide with the ground
-    this.physics.add.collider(logo, ground);
-    this.physics.add.collider(logo, obstacle);
+    this.physics.add.collider(this.logo, ground, this.handleGroundCollision, undefined, this);
+    this.physics.add.collider(this.logo, obstacle);
 
     // Set the logo to bounce a little bit
-    logo.setBounce(0.3);
-    logo.setCollideWorldBounds(true);
+    this.logo.setBounce(0.1);
+    this.logo.setCollideWorldBounds(true);
+    this.logo.setDrag(300, 0); // Add drag to slow down horizontal movement
+    this.logo.setFriction(0.2, 0); // Add friction for more realistic movement
+
+    // Add movement with keyboard WASD
+    this.cursors = this.input.keyboard.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+      jump: Phaser.Input.Keyboard.KeyCodes.SPACE,
+    }) as {
+      up: Phaser.Input.Keyboard.Key;
+      down: Phaser.Input.Keyboard.Key;
+      left: Phaser.Input.Keyboard.Key;
+      right: Phaser.Input.Keyboard.Key;
+      jump: Phaser.Input.Keyboard.Key;
+    };
+  }
+
+  handleGroundCollision() {
+    // When the logo touches the ground, allow jumping again
+    this.canJump = true;
+    this.isJumping = false;
+    this.hasDoubleJump = true; // Reset double jump when touching ground
   }
 
   update() {
     // The update method runs on every frame of the game loop
     // This is where you put game logic that needs to run continuously
     // It's called approximately 60 times per second depending on performance
-    // This is empty for now, but this is where you would put code to:
-    // - Check for player input (like keyboard or mouse)
-    // - Move characters around
-    // - Check for collisions
-    // - Update scores or timers
+
+    // Check for horizontal movement
+    if (this.cursors.left.isDown) {
+      // Move left with acceleration for smoother movement
+      this.logo.setVelocityX(Math.max(this.logo.body.velocity.x - 20, -300));
+    } else if (this.cursors.right.isDown) {
+      // Move right with acceleration for smoother movement
+      this.logo.setVelocityX(Math.min(this.logo.body.velocity.x + 20, 300));
+    } else {
+      // Slow down naturally when not pressing keys
+      if (Math.abs(this.logo.body.velocity.x) < 10) {
+        this.logo.setVelocityX(0);
+      } else if (this.logo.body.velocity.x > 0) {
+        this.logo.setVelocityX(this.logo.body.velocity.x - 10);
+      } else {
+        this.logo.setVelocityX(this.logo.body.velocity.x + 10);
+      }
+    }
+
+    // Track if jump key has been released (needed for double jump)
+    if (!this.cursors.jump.isDown) {
+      this.jumpReleased = true;
+    }
+
+    // Check for jump - only allow jumping when on the ground
+    if (this.cursors.jump.isDown && this.jumpReleased) {
+      if (this.canJump) {
+        // First jump
+        this.logo.setVelocityY(-600);
+        this.isJumping = true;
+        this.canJump = false;
+        this.jumpReleased = false;
+      } else if (this.hasDoubleJump) {
+        // Double jump (Genji style)
+        this.logo.setVelocityY(-500); // Slightly less powerful than first jump
+        this.hasDoubleJump = false;
+        this.jumpReleased = false;
+        
+        // Add a visual effect for double jump (simple rotation)
+        this.tweens.add({
+          targets: this.logo,
+          angle: 360,
+          duration: 400,
+          ease: 'Power1'
+        });
+      }
+    }
+
+    // If the player is moving horizontally while jumping, add some horizontal boost
+    if (this.isJumping) {
+      if (this.cursors.left.isDown) {
+        this.logo.setVelocityX(Math.max(this.logo.body.velocity.x - 5, -350));
+      } else if (this.cursors.right.isDown) {
+        this.logo.setVelocityX(Math.min(this.logo.body.velocity.x + 5, 350));
+      }
+    }
   }
 }
 
@@ -133,7 +222,7 @@ const config: Phaser.Types.Core.GameConfig = {
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { x: 0, y: 300 },
+      gravity: { x: 0, y: 1200 },
       debug: false,
     },
   },
