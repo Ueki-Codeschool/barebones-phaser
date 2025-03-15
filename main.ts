@@ -1,28 +1,37 @@
 import Phaser from "phaser";
 
-const config = {
+class MainScene extends Phaser.Scene {
+  constructor() {
+    super("MainScene");
+  }
+
+  preload() {
+    // The preload method runs once at the beginning of the scene
+    // This is where you load all assets (images, sounds, spritesheets, etc.)
+    // Assets loaded here will be ready to use in the create method
+    this.load.image("logo", "assets/phaser-logo.png");
+  }
+
+  create() {
+    // The create method runs once after preload completes
+    // This is where you set up your game objects, physics, and initial state
+    // It's called after all assets from preload are available
+    this.add.image(400, 300, "logo");
+  }
+
+  update() {
+    // The update method runs on every frame of the game loop
+    // This is where you put game logic that needs to run continuously
+    // It's called approximately 60 times per second depending on performance
+  }
+}
+
+const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 800,
   height: 600,
-  scene: {
-    preload: preload,
-    create: create,
-    update: update,
-  },
+  scene: [MainScene],
 };
 
+// initialize game
 const game = new Phaser.Game(config);
-
-function preload() {
-  // Load the local image from assets directory
-  this.load.image("logo", "assets/phaser-logo.png");
-}
-
-function create() {
-  // Display the image in the center of the screen
-  this.add.image(400, 300, "logo");
-}
-
-function update() {
-  // Game loop logic goes here
-}
