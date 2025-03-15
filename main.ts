@@ -32,7 +32,7 @@ class MainScene extends Phaser.Scene {
     // First two parameters: x and y coordinates (400, 300 is the center of our 800x600 game)
     // Third parameter: the name of the image we want to show (the same name we used in preload)
     // We save the image to a variable so we can modify it
-    const logo = this.add.image(400, 300, logoName);
+    const logo = this.physics.add.image(100, 300, logoName);
 
     // Change the size of the image
     // setScale(x, y) changes the width and height of the image
@@ -55,7 +55,7 @@ class MainScene extends Phaser.Scene {
     const obstacleWidth = 100;
     const obstacleHeight = 100;
     const obstacleX = 400;
-    const obstacleY = 500;
+    const obstacleY = 500; // Changed to sit on the ground
 
     // Create a graphics object - this is like a digital pen or brush
     // We use it to draw shapes that aren't from image files
@@ -64,7 +64,7 @@ class MainScene extends Phaser.Scene {
     // Set fill style (color, alpha)
     // 0x009900 is the color code for green (like #009900 in CSS)
     // 1 means fully visible (not transparent at all)
-    graphics.fillStyle(0x009900, 1); // Green color
+    graphics.fillStyle(0x009900, 1);
 
     // Draw the rectangle (x, y, width, height)
     // x=0 means start from the left edge
@@ -72,8 +72,44 @@ class MainScene extends Phaser.Scene {
     // Then make it as wide and tall as our variables specify
     graphics.fillRect(0, groundY, groundWidth, groundHeight);
 
-    graphics.fillStyle(0xff0000, 1);
-    graphics.fillRect(obstacleX, obstacleY, obstacleWidth, obstacleHeight);
+    // Create the ground as a static physics body
+    const ground = this.physics.add.staticGroup();
+    const groundSprite = this.add.rectangle(
+      400,
+      groundY + 25,
+      groundWidth,
+      groundHeight,
+      0x009900
+    );
+    ground.add(groundSprite);
+
+    // Draw the obstacle as a brown rectangle
+    graphics.fillStyle(0x8B4513, 1); // Brown color
+    graphics.fillRect(
+      obstacleX - obstacleWidth / 2,
+      obstacleY - obstacleHeight / 2,
+      obstacleWidth,
+      obstacleHeight
+    );
+
+    // Create the obstacle as a static physics body
+    const obstacle = this.physics.add.staticGroup();
+    const obstacleSprite = this.add.rectangle(
+      obstacleX,
+      obstacleY,
+      obstacleWidth,
+      obstacleHeight,
+      0x8B4513
+    );
+    obstacle.add(obstacleSprite);
+
+    // Make the logo and obstacle collide with the ground
+    this.physics.add.collider(logo, ground);
+    this.physics.add.collider(logo, obstacle);
+
+    // Set the logo to bounce a little bit
+    logo.setBounce(0.3);
+    logo.setCollideWorldBounds(true);
   }
 
   update() {
@@ -93,7 +129,14 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO, // Let Phaser choose the best renderer (WebGL or Canvas)
   width: 800, // Game width in pixels
   height: 600, // Game height in pixels
-  scene: [MainScene], // The scenes our game will use (we just have one for now)
+  scene: [MainScene],
+  physics: {
+    default: "arcade",
+    arcade: {
+      gravity: { x: 0, y: 300 },
+      debug: false,
+    },
+  },
 };
 
 // This line creates and starts our game using the settings above
