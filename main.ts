@@ -1,4 +1,7 @@
 import Phaser from "phaser";
+// Import assets to let Vite process them
+import phaserLogo from './assets/phaser-logo.png';
+import adventurerSheet from './assets/sprites/adventurer-v1.5-Sheet.png';
 
 // Constants for asset names
 const logoName = "logo";
@@ -63,12 +66,12 @@ class MainScene extends Phaser.Scene {
     // Assets loaded here will be ready to use in the create method
 
     // Load the logo image
-    this.load.image(logoName, "assets/phaser-logo.png");
+    this.load.image(logoName, phaserLogo);
 
     // Load the adventurer spritesheet
     this.load.spritesheet(
       playerSpriteName,
-      "assets/sprites/adventurer-v1.5-Sheet.png",
+      adventurerSheet,
       {
         frameWidth: 50, // Width of each frame in the spritesheet
         frameHeight: 37, // Height of each frame in the spritesheet
