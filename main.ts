@@ -51,6 +51,12 @@ class MainScene extends Phaser.Scene {
     const groundHeight = 50; // 50 pixels tall
     const groundY = 550; // Position from top (600 - 50 = 550)
 
+    // Obstacle variables
+    const obstacleWidth = 100;
+    const obstacleHeight = 100;
+    const obstacleX = 400;
+    const obstacleY = 500;
+
     // Create a graphics object - this is like a digital pen or brush
     // We use it to draw shapes that aren't from image files
     const graphics = this.add.graphics();
@@ -65,6 +71,9 @@ class MainScene extends Phaser.Scene {
     // y=groundY means start 550 pixels from the top
     // Then make it as wide and tall as our variables specify
     graphics.fillRect(0, groundY, groundWidth, groundHeight);
+
+    graphics.fillStyle(0xff0000, 1);
+    graphics.fillRect(obstacleX, obstacleY, obstacleWidth, obstacleHeight);
   }
 
   update() {
