@@ -1,7 +1,9 @@
 import Phaser from "phaser";
 // Import assets to let Vite process them
-import phaserLogo from './assets/phaser-logo.png';
-import adventurerSheet from './assets/sprites/adventurer-v1.5-Sheet.png';
+import phaserLogo from "./assets/phaser-logo.png";
+import adventurerSheet from "./assets/sprites/adventurer-v1.5-Sheet.png";
+// Import UI module
+import { UIScene, currentSettings, GameSettings } from "./ui";
 
 // Constants for asset names
 const logoName = "logo";
@@ -69,14 +71,10 @@ class MainScene extends Phaser.Scene {
     this.load.image(logoName, phaserLogo);
 
     // Load the adventurer spritesheet
-    this.load.spritesheet(
-      playerSpriteName,
-      adventurerSheet,
-      {
-        frameWidth: 50, // Width of each frame in the spritesheet
-        frameHeight: 37, // Height of each frame in the spritesheet
-      }
-    );
+    this.load.spritesheet(playerSpriteName, adventurerSheet, {
+      frameWidth: 50, // Width of each frame in the spritesheet
+      frameHeight: 37, // Height of each frame in the spritesheet
+    });
 
     // Load projectile image
     this.load.image(
@@ -91,14 +89,13 @@ class MainScene extends Phaser.Scene {
     // It's called after all assets from preload are available
 
     // Create the player sprite
-    this.player = this.physics.add.sprite(100, 300, playerSpriteName);
-    this.player.setBounce(0.1);
+    this.player = this.physics.add.sprite(400, 300, playerSpriteName);
+    this.player.setScale(2);
     this.player.setCollideWorldBounds(true);
     this.player.setDrag(300, 0); // Add drag to slow down horizontal movement
-    this.player.setFriction(0.2, 0); // Add friction for more realistic movement
+    this.player.setBounce(currentSettings.bounce);
 
     // Scale the player to be visible (these sprites are quite small)
-    this.player.setScale(2);
 
     // Create animations for the player
     this.createPlayerAnimations();
@@ -112,8 +109,12 @@ class MainScene extends Phaser.Scene {
     // Create a group for enemies
     this.enemies = this.physics.add.group();
 
+    // Create a platform that serves as the ground
+    const groundY = 550; // Position from top (600 - 50 = 550)
+
     // Create a test enemy
-    this.createEnemy(600, 450);
+    this.createEnemy(200, groundY - 25); // Position on ground (accounting for enemy height)
+    this.createEnemy(700, groundY - 25); // Position on ground (accounting for enemy height)
 
     // Create a group for projectiles
     this.projectiles = this.physics.add.group({
@@ -124,13 +125,12 @@ class MainScene extends Phaser.Scene {
     // These variables define the size and position of our ground
     const groundWidth = 800; // Same width as our game
     const groundHeight = 50; // 50 pixels tall
-    const groundY = 550; // Position from top (600 - 50 = 550)
 
     // Obstacle variables
-    const obstacleWidth = 100;
-    const obstacleHeight = 100;
-    const obstacleX = 400;
-    const obstacleY = 500; // Changed to sit on the ground
+    const obstacleWidth = 50;
+    const obstacleHeight = 50;
+    const obstacleX = 600;
+    const obstacleY = groundY - obstacleHeight / 2; // Position it on the ground
 
     // Create a graphics object - this is like a digital pen or brush
     // We use it to draw shapes that aren't from image files
@@ -179,16 +179,14 @@ class MainScene extends Phaser.Scene {
     obstacle.add(this.obstacle);
 
     // Add health text above the obstacle
+    this.obstacleHealth = currentSettings.obstacleHealth;
     this.obstacleHealthText = this.add.text(
-      obstacleX - 40,
-      obstacleY - 70,
+      this.obstacle.x,
+      this.obstacle.y - 70,
       `HP: ${this.obstacleHealth}`,
-      {
-        fontSize: "16px",
-        color: "#fff",
-        backgroundColor: "#000",
-      }
+      { fontSize: "16px", color: "#fff", backgroundColor: "#000" }
     );
+    this.obstacleHealthText.setOrigin(0.5);
 
     // Make the player and obstacle collide with the ground
     this.physics.add.collider(
@@ -287,24 +285,38 @@ class MainScene extends Phaser.Scene {
         backgroundColor: "#000",
       }
     );
+
+    // Listen for settings changes from UI
+    if (this.scene.get('UIScene')) {
+      this.scene.get('UIScene').events.on('settingsChanged', (settings: GameSettings) => {
+        this.applySettings(settings);
+      });
+    }
+  }
+
+  // Apply settings from UI to game mechanics
+  applySettings(settings: GameSettings) {
+    // Update player physics
+    this.player.setBounce(settings.bounce);
+
+    // Update world gravity
+    this.physics.world.gravity.y = settings.gravity;
+
+    // Other settings will be applied during gameplay in the update method
   }
 
   createEnemy(x: number, y: number) {
-    if (!this.enemies) return;
-
-    // Create a simple enemy (red rectangle)
     const enemy = this.add.rectangle(x, y, 30, 50, 0xff0000);
     this.physics.add.existing(enemy);
-
-    // Add the enemy to the group
-    this.enemies.add(enemy);
+    
+    if (this.enemies) {
+      this.enemies.add(enemy);
+    }
 
     // Set enemy properties
-    (enemy.body as Phaser.Physics.Arcade.Body).setBounce(0.1);
+    (enemy as any).health = currentSettings.enemyHealth;
     (enemy.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
-
-    // Store health on the enemy
-    (enemy as any).health = 3;
+    (enemy.body as Phaser.Physics.Arcade.Body).setBounce(0.2);
   }
 
   handleAttackHit(
@@ -314,12 +326,15 @@ class MainScene extends Phaser.Scene {
     const currentTime = this.time.now;
 
     // Only register a hit if we're attacking and not in cooldown
-    if (this.isAttacking && currentTime - this.lastHitTime > this.hitCooldown) {
+    if (
+      this.isAttacking &&
+      currentTime - this.lastHitTime > currentSettings.hitCooldown
+    ) {
       // Determine damage based on attack combo
-      let damage = 1;
-      if (this.attackCombo === 1) damage = 1;
-      else if (this.attackCombo === 2) damage = 2;
-      else if (this.attackCombo === 3) damage = 3;
+      let damage = currentSettings.attackDamage.attack1;
+      if (this.attackCombo === 2) damage = currentSettings.attackDamage.attack2;
+      else if (this.attackCombo === 3)
+        damage = currentSettings.attackDamage.attack3;
 
       // Apply damage to enemy
       (enemy as any).health -= damage;
@@ -361,13 +376,13 @@ class MainScene extends Phaser.Scene {
     if (
       this.isAttacking &&
       this.obstacleHealth > 0 &&
-      currentTime - this.lastHitTime > this.hitCooldown
+      currentTime - this.lastHitTime > currentSettings.hitCooldown
     ) {
       // Determine damage based on attack combo
-      let damage = 5; // Base damage
-      if (this.attackCombo === 1) damage = 5;
-      else if (this.attackCombo === 2) damage = 10;
-      else if (this.attackCombo === 3) damage = 15;
+      let damage = currentSettings.attackDamage.attack1;
+      if (this.attackCombo === 2) damage = currentSettings.attackDamage.attack2;
+      else if (this.attackCombo === 3)
+        damage = currentSettings.attackDamage.attack3;
 
       // Apply damage to obstacle
       this.obstacleHealth -= damage;
@@ -445,7 +460,7 @@ class MainScene extends Phaser.Scene {
     enemy: Phaser.Types.Physics.Arcade.GameObjectWithBody
   ) {
     // Apply damage to enemy
-    (enemy as any).health -= 2;
+    (enemy as any).health -= currentSettings.projectileDamage;
 
     // Destroy the projectile
     projectile.destroy();
@@ -482,10 +497,10 @@ class MainScene extends Phaser.Scene {
     // Only register a hit if not in cooldown
     if (
       this.obstacleHealth > 0 &&
-      currentTime - this.lastHitTime > this.hitCooldown
+      currentTime - this.lastHitTime > currentSettings.hitCooldown
     ) {
       // Apply damage to obstacle
-      const damage = 8; // Projectile damage
+      const damage = currentSettings.projectileDamage;
       this.obstacleHealth -= damage;
 
       // Update last hit time
@@ -763,7 +778,7 @@ class MainScene extends Phaser.Scene {
         // Set projectile properties
         projectile.setScale(1.5);
         (projectile as any).direction = direction; // Store direction for hit handling
-        projectile.setVelocityX(direction * 600); // Fast horizontal velocity
+        projectile.setVelocityX(direction * currentSettings.projectileSpeed); // Fast horizontal velocity
 
         // Flip projectile based on direction
         projectile.setFlipX(this.facingLeft);
@@ -809,7 +824,10 @@ class MainScene extends Phaser.Scene {
       if (this.cursors.left.isDown) {
         // Move left with acceleration for smoother movement
         this.player.setVelocityX(
-          Math.max(this.player.body!.velocity.x - 20, -300)
+          Math.max(
+            this.player.body!.velocity.x - 20,
+            -currentSettings.playerSpeed
+          )
         );
 
         // Play the run animation if not jumping
@@ -823,7 +841,10 @@ class MainScene extends Phaser.Scene {
       } else if (this.cursors.right.isDown) {
         // Move right with acceleration for smoother movement
         this.player.setVelocityX(
-          Math.min(this.player.body!.velocity.x + 20, 300)
+          Math.min(
+            this.player.body!.velocity.x + 20,
+            currentSettings.playerSpeed
+          )
         );
 
         // Play the run animation if not jumping
@@ -870,7 +891,7 @@ class MainScene extends Phaser.Scene {
     ) {
       if (this.canJump) {
         // First jump
-        this.player.setVelocityY(-600);
+        this.player.setVelocityY(-currentSettings.playerJumpForce);
         this.isJumping = true;
         this.canJump = false;
         this.jumpReleased = false;
@@ -884,7 +905,7 @@ class MainScene extends Phaser.Scene {
         });
       } else if (this.hasDoubleJump) {
         // Double jump (Genji style)
-        this.player.setVelocityY(-500); // Slightly less powerful than first jump
+        this.player.setVelocityY(-currentSettings.playerDoubleJumpForce); // Slightly less powerful than first jump
         this.hasDoubleJump = false;
         this.jumpReleased = false;
 
@@ -902,11 +923,17 @@ class MainScene extends Phaser.Scene {
     if (this.isJumping && !this.isAttacking && !this.isShooting) {
       if (this.cursors.left.isDown) {
         this.player.setVelocityX(
-          Math.max(this.player.body!.velocity.x - 5, -350)
+          Math.max(
+            this.player.body!.velocity.x - 5,
+            -currentSettings.playerSpeed * 1.15
+          )
         );
       } else if (this.cursors.right.isDown) {
         this.player.setVelocityX(
-          Math.min(this.player.body!.velocity.x + 5, 350)
+          Math.min(
+            this.player.body!.velocity.x + 5,
+            currentSettings.playerSpeed * 1.15
+          )
         );
       }
     }
@@ -962,7 +989,7 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO, // Let Phaser choose the best renderer (WebGL or Canvas)
   width: 800, // Game width in pixels
   height: 600, // Game height in pixels
-  scene: [MainScene],
+  scene: [MainScene, UIScene], // Add both scenes
   backgroundColor: "#FFFFFF",
   physics: {
     default: "arcade",
