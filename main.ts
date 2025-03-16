@@ -95,6 +95,10 @@ class MainScene extends Phaser.Scene {
     this.player.setDrag(300, 0); // Add drag to slow down horizontal movement
     this.player.setBounce(currentSettings.bounce);
 
+    // Add camera configuration
+    this.cameras.main.startFollow(this.player);
+    this.cameras.main.setDeadzone(50, 50);
+
     // Scale the player to be visible (these sprites are quite small)
 
     // Create animations for the player
@@ -287,10 +291,12 @@ class MainScene extends Phaser.Scene {
     );
 
     // Listen for settings changes from UI
-    if (this.scene.get('UIScene')) {
-      this.scene.get('UIScene').events.on('settingsChanged', (settings: GameSettings) => {
-        this.applySettings(settings);
-      });
+    if (this.scene.get("UIScene")) {
+      this.scene
+        .get("UIScene")
+        .events.on("settingsChanged", (settings: GameSettings) => {
+          this.applySettings(settings);
+        });
     }
   }
 
@@ -308,7 +314,7 @@ class MainScene extends Phaser.Scene {
   createEnemy(x: number, y: number) {
     const enemy = this.add.rectangle(x, y, 30, 50, 0xff0000);
     this.physics.add.existing(enemy);
-    
+
     if (this.enemies) {
       this.enemies.add(enemy);
     }
@@ -452,6 +458,8 @@ class MainScene extends Phaser.Scene {
           }
         },
       });
+
+      this.shakeCamera();
     }
   }
 
@@ -811,6 +819,10 @@ class MainScene extends Phaser.Scene {
         this.shootCooldown = false;
       });
     });
+  }
+
+  shakeCamera() {
+    this.cameras.main.shake(250, 0.01);
   }
 
   update(time: number) {
